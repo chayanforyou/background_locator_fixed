@@ -158,5 +158,8 @@ class Keys {
 
         @JvmStatic
         val NOTIFICATION_ACTION = "com.yukams.background_locator_2.notification"
+
+        @JvmStatic
+        val GPS_ENABLE_ACTION = "com.yukams.background_locator_2.GPS_ENABLE_ACTION"
     }
 }

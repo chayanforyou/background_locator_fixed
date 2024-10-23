@@ -3,13 +3,16 @@ package yukams.app.background_locator_2
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -130,6 +133,13 @@ class BackgroundLocatorPlugin
                 intent.putExtra(Keys.SETTINGS_DISPOSABLE_PLUGGABLE, true)
             }
 
+            // Gps enable request
+            val gpsIntent = Intent(Keys.GPS_ENABLE_ACTION)
+            gpsIntent.putExtra(Keys.SETTINGS_INTERVAL, settings[Keys.SETTINGS_INTERVAL] as? Int)
+            gpsIntent.putExtra(Keys.SETTINGS_ACCURACY, settings[Keys.SETTINGS_ACCURACY] as? Int)
+            LocalBroadcastManager.getInstance(context).sendBroadcast(gpsIntent)
+
+            // Start isolate service
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -221,11 +231,8 @@ class BackgroundLocatorPlugin
             Keys.METHOD_PLUGIN_INITIALIZE_SERVICE -> {
                 val args: Map<Any, Any>? = call.arguments()
 
-                   // save callback dispatcher to use it when device reboots
+                // save callback dispatcher to use it when device reboots
                 PreferencesManager.saveCallbackDispatcher(context!! , args!!)
-
-
-
 
                 initializeService(context!!, args)
                 result.success(true)
@@ -254,7 +261,6 @@ class BackgroundLocatorPlugin
                 val args: Map<Any, Any>? = call.arguments()
 
                     updateNotificationText(context!!, args!!)
-
 
                 result.success(true)
             }
@@ -311,6 +317,7 @@ class BackgroundLocatorPlugin
     }
 
     override fun onDetachedFromActivity() {
+        LocalBroadcastManager.getInstance(activity!!).unregisterReceiver(gpsReceiver)
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
@@ -319,10 +326,18 @@ class BackgroundLocatorPlugin
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
         binding.addOnNewIntentListener(this)
+        LocalBroadcastManager.getInstance(activity!!)
+            .registerReceiver(gpsReceiver, IntentFilter(Keys.GPS_ENABLE_ACTION))
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
     }
 
-
+    private val gpsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Keys.GPS_ENABLE_ACTION) {
+                activity?.let { GpsUtils.turnGPSOn(it, getLocationRequest(intent)) }
+            }
+        }
+    }
 }
